@@ -1,7 +1,7 @@
 // Voice News - CLEAN REWRITTEN VERSION
 // ---------------------------------------------------------
 
-const SUPABASE_URL = 'https://qidpqxsvzzyryklfkxmk.supabase.co'; 
+const SUPABASE_URL = 'https://qidpqxsvzzyryklfkxmk.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpZHBxeHN2enp5cnlrbGZreG1rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM2OTUzMjAsImV4cCI6MjA4OTI3MTMyMH0.YS37JnHF1bdR35gunVTvEQdK7CvCUiGQffDWOoUOi3s';
 
 // UI Elements
@@ -49,7 +49,7 @@ function init() {
     log("Đang khởi tạo ứng dụng...");
     updateGreetingText();
     dailyReset();
-    
+
     // 1. Initial Voice Load
     loadVoices();
     if (synth.onvoiceschanged !== undefined) {
@@ -87,7 +87,7 @@ function loadVoices() {
     const newVoices = synth.getVoices();
     // Only proceed if count changed or we haven't loaded yet
     if (newVoices.length === lastVoiceCount && lastVoiceCount !== 0) return;
-    
+
     lastVoiceCount = newVoices.length;
     voices = newVoices;
     log(`Đã tìm thấy ${voices.length} giọng hệ thống.`);
@@ -103,19 +103,30 @@ function renderVoiceButtons() {
     const viVoices = voices.filter(v => v.lang.includes('vi-VN'));
     viVoices.forEach((v, i) => {
         const name = v.name.toLowerCase();
-        let region = "giọng Việt Nam"; // Default label
         
-        // Better region/quality detection
-        if (name.includes('linh') || name.includes('huyen') || name.includes('miền nam')) region = "giọng Việt Nam (Nam)";
-        else if (name.includes('an') || name.includes('lan') || name.includes('miền bắc')) region = "giọng Việt Nam (Bắc)";
+        // Strict Alternating Rule for Variety:
+        // Index 0, 2, 4... -> Nam
+        // Index 1, 3, 5... -> Bắc
+        let region = (i % 2 === 0) ? "giọng Việt Nam (Nam)" : "giọng Việt Nam (Bắc)";
         
-        // Highlight Premium/Enhanced voices
+        // Manual Keyword Override (Only if very clear)
+        if (name.includes('miền bắc') || name.includes('an') || name.includes('lan')) {
+            region = "giọng Việt Nam (Bắc)";
+        } else if (name.includes('miền nam') || name.includes('huyen')) {
+            region = "giọng Việt Nam (Nam)";
+        }
+
+        // Labeling
         let label = v.name;
+        if (viVoices.filter(v2 => v2.name === v.name).length > 1) {
+            label += ` (${i + 1})`;
+        }
+
         if (name.includes('premium') || name.includes('enhanced') || name.includes('siri')) {
             label += " ✨";
             region = "Chất lượng Cao";
         }
-        
+
         addVoiceButton(label, region, v);
     });
 
@@ -132,12 +143,25 @@ function addVoiceButton(label, subtext, voiceValue) {
     const btn = document.createElement('button');
     btn.className = 'voice-btn';
     btn.innerHTML = `${label} <span class="voice-tag">${subtext}</span>`;
-    
+
     btn.onclick = () => {
         selectedVoice = voiceValue;
         document.querySelectorAll('.voice-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
+        
         log(`Đã chọn: ${label}`);
+        
+        // Add distinct auditory traits for variety
+        if (subtext.includes('Bắc')) {
+            window.currentVoiceTraits = { rate: 0.9, pitch: 1.15 };
+        } else if (subtext.includes('Nam')) {
+            window.currentVoiceTraits = { rate: 0.85, pitch: 0.9 };
+        } else {
+            window.currentVoiceTraits = { rate: 0.88, pitch: 1.0 };
+        }
+        
+        log(`Đặc tính âm thanh: Tốc độ ${window.currentVoiceTraits.rate}, Độ cao ${window.currentVoiceTraits.pitch}`, 'gray');
+        
         testAudio();
     };
 
@@ -176,7 +200,12 @@ function speakText(text, onEnd) {
     const u = new SpeechSynthesisUtterance(text);
     if (selectedVoice) u.voice = selectedVoice;
     u.lang = 'vi-VN';
-    u.rate = 0.85;
+    
+    // Apply variations
+    const traits = window.currentVoiceTraits || { rate: 0.85, pitch: 1.0 };
+    u.rate = traits.rate;
+    u.pitch = traits.pitch;
+    
     u.onstart = () => { isPlaying = true; updatePlayBtn(); };
     u.onend = () => {
         isPlaying = false;
@@ -196,7 +225,7 @@ async function playGoogleTTS(text, lang, onEnd) {
     // Split text into 200-char chunks (Google limit)
     const chunks = text.match(/.{1,200}(\s|$)/g) || [text];
     log(`Bắt đầu đọc Google TTS (${chunks.length} đoạn)...`, '#00ffff');
-    
+
     isPlaying = true;
     updatePlayBtn();
 
@@ -205,7 +234,7 @@ async function playGoogleTTS(text, lang, onEnd) {
 
     for (let i = 0; i < chunks.length; i++) {
         if (!isPlaying) break; // Stop if user paused
-        
+
         // Highlight active chunk
         document.querySelectorAll('.karaoke-container span').forEach(s => s.classList.remove('highlight'));
         const activeSpan = document.getElementById(`chunk-${i}`);
@@ -245,7 +274,7 @@ function testAudio() {
 async function startListening() {
     log("Bắt đầu nghe tin...");
     synth.speak(new SpeechSynthesisUtterance("")); // Unlock Audio
-    
+
     speakText(greetingText.innerText, () => {
         greetingScreen.classList.add('hidden');
         mainScreen.classList.remove('hidden');
@@ -261,18 +290,18 @@ async function loadAndPlayNews() {
             .select('*')
             .order('priority', { ascending: true })
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(30);
 
         if (error) throw error;
-        
+
         const heard = JSON.parse(localStorage.getItem('heard') || '[]');
         currentClusters = data.filter(item => !heard.includes(item.id));
-        
+
         if (currentClusters.length === 0) {
             karaokeText.innerText = "Không còn tin mới cho hôm bà ạ.";
             return;
         }
-        
+
         currentIndex = 0;
         playCurrentCluster();
     } catch (err) {
@@ -283,14 +312,14 @@ async function loadAndPlayNews() {
 function playCurrentCluster() {
     if (currentIndex >= currentClusters.length) return;
     const cluster = currentClusters[currentIndex];
-    
+
     // Background/Image Logic
     stopImageCarousel();
     if (cluster.images && cluster.images.length > 0) {
         newsImage.src = cluster.images[0];
         if (cluster.images.length > 1) startImageCarousel(cluster.images);
     }
-    
+
     karaokeText.innerText = cluster.summary;
     speakText(cluster.summary, () => {
         markAsHeard(cluster.id);
