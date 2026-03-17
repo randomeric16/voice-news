@@ -213,31 +213,35 @@ async function playGoogleTTS(text, lang, onEnd) {
     karaokeText.innerHTML = chunks.map((c, i) => `<span id="chunk-${i}">${c}</span>`).join('');
 
 
-    // Aggressive preloading queue
+    // 1. Bulk preloading: Load ALL segments immediately
     const audioQueue = new Array(chunks.length).fill(null);
-    const preloadChunk = (index) => {
-        if (index >= chunks.length || audioQueue[index]) return;
-        const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunks[index].trim())}`;
-        const audio = new Audio(url);
-        audio.preload = "auto";
-        audioQueue[index] = new Promise(resolve => {
-            audio.oncanplaythrough = () => resolve(audio);
-            audio.onerror = () => resolve(null);
+    const preloadAll = () => {
+        chunks.forEach((chunk, index) => {
+            const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunk.trim())}`;
+            const audio = new Audio(url);
+            audio.preload = "auto";
+            audioQueue[index] = new Promise(resolve => {
+                audio.oncanplaythrough = () => resolve(audio);
+                audio.onerror = () => {
+                    console.error(`TTS Load Error for segment ${index}`);
+                    resolve(null);
+                };
+            });
         });
     };
-
-    // Preload first 3 chunks immediately
-    for (let j = 0; j < Math.min(3, chunks.length); j++) preloadChunk(j);
+    preloadAll();
 
     const playChunkRecursive = async (index) => {
         if (index >= chunks.length || !isPlaying) {
-            isPlaying = false;
-            updatePlayBtn();
-            if (onEnd) onEnd();
+            if (index >= chunks.length) {
+                isPlaying = false;
+                updatePlayBtn();
+                if (onEnd) onEnd();
+            }
             return;
         }
 
-        // 1. Highlight UI
+        // Highlight UI
         document.querySelectorAll('.karaoke-container span').forEach(s => s.classList.remove('highlight'));
         const activeSpan = document.getElementById(`chunk-${index}`);
         if (activeSpan) {
@@ -245,39 +249,38 @@ async function playGoogleTTS(text, lang, onEnd) {
             activeSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // 2. Fetch from queue
+        // Get preloaded audio
         const audio = await audioQueue[index];
-        preloadChunk(index + 3); // Keep preloading buffer ahead
 
         if (!audio) {
-            // Fallback
-            selectedVoice = voices.find(v => v.lang.includes('vi-VN')) || voices[0];
-            speakText(chunks[index], () => playChunkRecursive(index + 1));
+            log("Mất kết nối đoạn này, đang chuyển tiếp...", "yellow");
+            playChunkRecursive(index + 1);
             return;
         }
 
-        // 3. Play with immediate trigger for next
         googleAudio = audio;
         
-        // Strategy: trigger next slightly early (0.1s) to overcome browser engine gap
-        let triggeredNext = false;
+        let nextTriggered = false;
         const triggerNext = () => {
-            if (triggeredNext) return;
-            triggeredNext = true;
+            if (nextTriggered) return;
+            nextTriggered = true;
+            // Clean up to prevent double trigger
             audio.ontimeupdate = null;
             audio.onended = null;
             playChunkRecursive(index + 1);
         };
 
+        // Aggressive gapless: Trigger next 0.35s before end 
+        // to cover network/browser latency and Google TTS trailing silence
         audio.ontimeupdate = () => {
-            if (audio.duration && audio.currentTime > audio.duration - 0.15) {
+            if (audio.duration && audio.currentTime > audio.duration - 0.35) {
                 triggerNext();
             }
         };
         audio.onended = triggerNext;
 
         audio.play().catch(err => {
-            log("Nhấn Play để nghe tiếp cụm tin.", "yellow");
+            console.error("Playback failed:", err);
             isPlaying = false;
             updatePlayBtn();
         });
@@ -293,6 +296,8 @@ function testAudio() {
 
 async function startListening() {
     log("Bắt đầu nghe tin...");
+    // Warm up Vercel TTS Proxy to prevent cold start delay
+    fetch('/api/tts?q=warmup').catch(() => {});
     synth.speak(new SpeechSynthesisUtterance("")); // Unlock Audio
 
     speakText(greetingText.innerText, () => {
