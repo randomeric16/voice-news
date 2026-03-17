@@ -459,7 +459,7 @@ function markAsHeard(id) {
 function updateGreetingText() {
     const now = new Date();
     const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
-    greetingText.innerText = `Chào ông bà, hôm nay là ${days[now.getDay()]}, ${now.getDate()}/${now.getMonth() + 1}.`;
+    greetingText.innerText = `Chào ông bà, cô chú anh chị, hôm nay là ${days[now.getDay()]} Ngày ${now.getDate()} Tháng ${now.getMonth() + 1}`;
 }
 
 function dailyReset() {
