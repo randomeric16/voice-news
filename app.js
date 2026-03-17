@@ -103,11 +103,20 @@ function renderVoiceButtons() {
     const viVoices = voices.filter(v => v.lang.includes('vi-VN'));
     viVoices.forEach((v, i) => {
         const name = v.name.toLowerCase();
-        let region = "Giọng Mặc định";
-        if (name.includes('linh') || name.includes('huyen') || name.includes('miên nam')) region = "giọng Việt Nam";
-        else if (name.includes('an') || name.includes('lan') || name.includes('miên bắc')) region = "Giọng Miền Bắc";
+        let region = "giọng Việt Nam"; // Default label
         
-        addVoiceButton(v.name, region, v);
+        // Better region/quality detection
+        if (name.includes('linh') || name.includes('huyen') || name.includes('miền nam')) region = "giọng Việt Nam (Nam)";
+        else if (name.includes('an') || name.includes('lan') || name.includes('miền bắc')) region = "giọng Việt Nam (Bắc)";
+        
+        // Highlight Premium/Enhanced voices
+        let label = v.name;
+        if (name.includes('premium') || name.includes('enhanced') || name.includes('siri')) {
+            label += " ✨";
+            region = "Chất lượng Cao";
+        }
+        
+        addVoiceButton(label, region, v);
     });
 
     // B. Premium/Bilingual Voices (Google Fallback)
@@ -210,7 +219,10 @@ async function playGoogleTTS(text, lang, onEnd) {
             googleAudio = new Audio(url);
             googleAudio.onended = resolve;
             googleAudio.onerror = (e) => {
-                log("Lỗi tải âm thanh Google", "red");
+                log("Dịch vụ Google bị chặn trên website này (Lỗi CORS). Đang dùng giọng mặc định...", "yellow");
+                // Automatic fallback to native voice
+                selectedVoice = voices.find(v => v.lang.includes('vi-VN')) || voices[0];
+                speakText(text, onEnd);
                 resolve();
             };
             googleAudio.play().catch(err => {
