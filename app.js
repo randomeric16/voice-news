@@ -243,7 +243,8 @@ async function playGoogleTTS(text, lang, onEnd) {
             activeSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(chunks[i].trim())}`;
+        // Use Vercel Proxy to avoid CORS
+        const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunks[i].trim())}`;
         await new Promise((resolve) => {
             googleAudio = new Audio(url);
             googleAudio.onended = resolve;
