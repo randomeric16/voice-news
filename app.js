@@ -202,8 +202,28 @@ async function playGoogleTTS(text, lang, onEnd) {
         googleAudio = null;
     }
 
-    // Split text into 200-char chunks (Google limit)
-    const chunks = text.match(/.{1,200}(\s|$)/g) || [text];
+    // Split text into sentences (using dots/punctuations) while staying under 200 chars
+    const rawSentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+    const chunks = [];
+    let currentChunk = "";
+
+    rawSentences.forEach(sentence => {
+        const s = sentence.trim();
+        if (!s) return;
+        if ((currentChunk + " " + s).length <= 190) { // Keep a small buffer
+            currentChunk += (currentChunk ? " " : "") + s;
+        } else {
+            if (currentChunk) chunks.push(currentChunk);
+            if (s.length > 190) {
+                const parts = s.match(/.{1,190}(\s|$)/g) || [s];
+                parts.forEach(p => chunks.push(p.trim()));
+                currentChunk = "";
+            } else {
+                currentChunk = s;
+            }
+        }
+    });
+    if (currentChunk) chunks.push(currentChunk);
     log(`Bắt đầu đọc Google TTS (${chunks.length} đoạn)...`, '#00ffff');
 
     isPlaying = true;
