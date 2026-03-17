@@ -213,70 +213,79 @@ async function playGoogleTTS(text, lang, onEnd) {
     karaokeText.innerHTML = chunks.map((c, i) => `<span id="chunk-${i}">${c}</span>`).join('');
 
 
-    // Prepare audio queue/cache for gapless playback
+    // Aggressive preloading queue
     const audioQueue = new Array(chunks.length).fill(null);
-    
-    // Helper to preload a chunk
     const preloadChunk = (index) => {
         if (index >= chunks.length || audioQueue[index]) return;
         const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunks[index].trim())}`;
         const audio = new Audio(url);
         audio.preload = "auto";
-        audioQueue[index] = new Promise((resolve, reject) => {
+        audioQueue[index] = new Promise(resolve => {
             audio.oncanplaythrough = () => resolve(audio);
-            audio.onerror = () => {
-                log(`Lỗi tải đoạn ${index + 1}.`, "yellow");
-                resolve(null); // Fallback to native on error
-            };
+            audio.onerror = () => resolve(null);
         });
     };
 
-    // Preload the first two chunks immediately
-    preloadChunk(0);
-    preloadChunk(1);
+    // Preload first 3 chunks immediately
+    for (let j = 0; j < Math.min(3, chunks.length); j++) preloadChunk(j);
 
-    for (let i = 0; i < chunks.length; i++) {
-        if (!isPlaying) break;
+    const playChunkRecursive = async (index) => {
+        if (index >= chunks.length || !isPlaying) {
+            isPlaying = false;
+            updatePlayBtn();
+            if (onEnd) onEnd();
+            return;
+        }
 
-        // Highlight active chunk
+        // 1. Highlight UI
         document.querySelectorAll('.karaoke-container span').forEach(s => s.classList.remove('highlight'));
-        const activeSpan = document.getElementById(`chunk-${i}`);
+        const activeSpan = document.getElementById(`chunk-${index}`);
         if (activeSpan) {
             activeSpan.classList.add('highlight');
             activeSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // Wait for current chunk to be ready
-        const audio = await audioQueue[i];
-        
-        // Start preloading the NEXT chunk (i+2) while i is about to play
-        preloadChunk(i + 2);
+        // 2. Fetch from queue
+        const audio = await audioQueue[index];
+        preloadChunk(index + 3); // Keep preloading buffer ahead
 
         if (!audio) {
-            // Fallback to native if audio failed to load
-            log("Chuyển sang giọng hệ thống dự phòng...", "yellow");
+            // Fallback
             selectedVoice = voices.find(v => v.lang.includes('vi-VN')) || voices[0];
-            await new Promise(res => speakText(chunks[i], res));
-            continue;
+            speakText(chunks[index], () => playChunkRecursive(index + 1));
+            return;
         }
 
-        // Play the buffered audio
+        // 3. Play with immediate trigger for next
         googleAudio = audio;
-        await new Promise((resolve) => {
-            googleAudio.onended = resolve;
-            googleAudio.play().catch(err => {
-                log("Cần nhấn Play để tiếp tục.", "yellow");
-                isPlaying = false;
-                updatePlayBtn();
-                resolve();
-            });
-        });
-    }
+        
+        // Strategy: trigger next slightly early (0.1s) to overcome browser engine gap
+        let triggeredNext = false;
+        const triggerNext = () => {
+            if (triggeredNext) return;
+            triggeredNext = true;
+            audio.ontimeupdate = null;
+            audio.onended = null;
+            playChunkRecursive(index + 1);
+        };
 
-    isPlaying = false;
-    updatePlayBtn();
-    if (onEnd) onEnd();
+        audio.ontimeupdate = () => {
+            if (audio.duration && audio.currentTime > audio.duration - 0.15) {
+                triggerNext();
+            }
+        };
+        audio.onended = triggerNext;
+
+        audio.play().catch(err => {
+            log("Nhấn Play để nghe tiếp cụm tin.", "yellow");
+            isPlaying = false;
+            updatePlayBtn();
+        });
+    };
+
+    playChunkRecursive(0);
 }
+
 
 function testAudio() {
     speakText("Xin chào ông bà, con là giọng đọc tự động. Các từ tiếng Anh như Facebook, Google được phát âm rất rõ.");
