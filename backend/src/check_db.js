@@ -23,6 +23,7 @@ async function checkDatabase() {
         const { data, error } = await supabase
             .from('news_clusters')
             .select('*')
+            .order('priority', { ascending: true })
             .order('created_at', { ascending: false })
             .limit(30);
 
