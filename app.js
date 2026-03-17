@@ -212,8 +212,31 @@ async function playGoogleTTS(text, lang, onEnd) {
     // Prepare HTML for highlighting
     karaokeText.innerHTML = chunks.map((c, i) => `<span id="chunk-${i}">${c}</span>`).join('');
 
+
+    // Prepare audio queue/cache for gapless playback
+    const audioQueue = new Array(chunks.length).fill(null);
+    
+    // Helper to preload a chunk
+    const preloadChunk = (index) => {
+        if (index >= chunks.length || audioQueue[index]) return;
+        const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunks[index].trim())}`;
+        const audio = new Audio(url);
+        audio.preload = "auto";
+        audioQueue[index] = new Promise((resolve, reject) => {
+            audio.oncanplaythrough = () => resolve(audio);
+            audio.onerror = () => {
+                log(`Lỗi tải đoạn ${index + 1}.`, "yellow");
+                resolve(null); // Fallback to native on error
+            };
+        });
+    };
+
+    // Preload the first two chunks immediately
+    preloadChunk(0);
+    preloadChunk(1);
+
     for (let i = 0; i < chunks.length; i++) {
-        if (!isPlaying) break; // Stop if user paused
+        if (!isPlaying) break;
 
         // Highlight active chunk
         document.querySelectorAll('.karaoke-container span').forEach(s => s.classList.remove('highlight'));
@@ -223,22 +246,29 @@ async function playGoogleTTS(text, lang, onEnd) {
             activeSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
 
-        // Use Vercel Proxy to avoid CORS
-        const url = `/api/tts?tl=${lang}&q=${encodeURIComponent(chunks[i].trim())}`;
+        // Wait for current chunk to be ready
+        const audio = await audioQueue[i];
+        
+        // Start preloading the NEXT chunk (i+2) while i is about to play
+        preloadChunk(i + 2);
+
+        if (!audio) {
+            // Fallback to native if audio failed to load
+            log("Chuyển sang giọng hệ thống dự phòng...", "yellow");
+            selectedVoice = voices.find(v => v.lang.includes('vi-VN')) || voices[0];
+            await new Promise(res => speakText(chunks[i], res));
+            continue;
+        }
+
+        // Play the buffered audio
+        googleAudio = audio;
         await new Promise((resolve) => {
-            googleAudio = new Audio(url);
             googleAudio.onended = resolve;
-            googleAudio.onerror = (e) => {
-                log("Dịch vụ Google bị chặn trên website này (Lỗi CORS). Đang dùng giọng mặc định...", "yellow");
-                // Automatic fallback to native voice
-                selectedVoice = voices.find(v => v.lang.includes('vi-VN')) || voices[0];
-                speakText(text, onEnd);
-                resolve();
-            };
             googleAudio.play().catch(err => {
-                log("Trình duyệt chặn tự động phát. Hãy nhấn Pause/Play.", "yellow");
+                log("Cần nhấn Play để tiếp tục.", "yellow");
                 isPlaying = false;
                 updatePlayBtn();
+                resolve();
             });
         });
     }
