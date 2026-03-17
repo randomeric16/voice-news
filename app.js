@@ -332,6 +332,10 @@ async function startListening() {
     synth.speak(new SpeechSynthesisUtterance("")); // Unlock Audio
 
     speakText(greetingText.innerText, () => {
+        // Mobile Hack: Play and pause a tiny silent sound to keep the audio channel open
+        // during the transition to the main screen.
+        if (googleAudio) googleAudio.play().catch(() => {}); 
+        
         greetingScreen.classList.add('hidden');
         mainScreen.classList.remove('hidden');
         loadAndPlayNews();
@@ -383,7 +387,9 @@ function playCurrentCluster() {
     karaokeText.innerText = cluster.summary;
     speakText(cluster.summary, () => {
         markAsHeard(cluster.id);
-        autoNextTimeout = setTimeout(nextNews, 3000);
+        // Reduce delay for mobile: 3s is too long and can trigger auto-play blocks.
+        // 800ms gives a short natural pause without losing the audio context.
+        autoNextTimeout = setTimeout(nextNews, 800);
     });
 }
 
