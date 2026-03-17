@@ -33,6 +33,7 @@ let autoNextTimeout = null;
 let imageInterval = null;
 let currentImageIndex = 0;
 let googleAudio = null; // To hold the current Google TTS Audio object
+let currentPlaybackId = 0; // To prevent voices overlapping when clicking Next fast
 
 // --- LOGGING ---
 function log(msg, color = 'white') {
@@ -202,8 +203,8 @@ async function playGoogleTTS(text, lang, onEnd) {
         googleAudio = null;
     }
 
-    // Split text into sentences (using dots/punctuations) while staying under 200 chars
-    const rawSentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+    // Split text into sentences, but avoid splitting on dots between numbers (decimals/thousands)
+    const rawSentences = text.match(/.*?[.!?](?!\d)(\s+|$)|.+$/g) || [text];
     const chunks = [];
     let currentChunk = "";
 
@@ -225,6 +226,9 @@ async function playGoogleTTS(text, lang, onEnd) {
     });
     if (currentChunk) chunks.push(currentChunk);
     log(`Bắt đầu đọc Google TTS (${chunks.length} đoạn)...`, '#00ffff');
+
+    currentPlaybackId++;
+    const myPlaybackId = currentPlaybackId;
 
     isPlaying = true;
     updatePlayBtn();
@@ -252,8 +256,8 @@ async function playGoogleTTS(text, lang, onEnd) {
     preloadAll();
 
     const playChunkRecursive = async (index) => {
-        if (index >= chunks.length || !isPlaying) {
-            if (index >= chunks.length) {
+        if (index >= chunks.length || !isPlaying || myPlaybackId !== currentPlaybackId) {
+            if (index >= chunks.length && myPlaybackId === currentPlaybackId) {
                 isPlaying = false;
                 updatePlayBtn();
                 if (onEnd) onEnd();
@@ -271,6 +275,7 @@ async function playGoogleTTS(text, lang, onEnd) {
 
         // Get preloaded audio
         const audio = await audioQueue[index];
+        if (myPlaybackId !== currentPlaybackId) return;
 
         if (!audio) {
             log("Mất kết nối đoạn này, đang chuyển tiếp...", "yellow");
