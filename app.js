@@ -168,7 +168,13 @@ function updateVoiceSelect() {
 // --- ACTIONS ---
 
 function speakText(text, onEnd) {
+    // Unified Pause for both systems
     synth.cancel();
+    if (googleAudio) {
+        googleAudio.pause();
+        googleAudio.onended = null;
+        googleAudio.ontimeupdate = null;
+    }
 
     // Google Translate TTS Path
     if (typeof selectedVoice === 'string' && selectedVoice.startsWith('google:')) {
@@ -360,6 +366,10 @@ async function loadAndPlayNews() {
 }
 
 function playCurrentCluster() {
+    if (autoNextTimeout) {
+        clearTimeout(autoNextTimeout);
+        autoNextTimeout = null;
+    }
     if (currentIndex >= currentClusters.length) return;
     const cluster = currentClusters[currentIndex];
 
@@ -397,6 +407,7 @@ function stopImageCarousel() {
 function nextNews() {
     if (currentIndex < currentClusters.length - 1) {
         currentIndex++;
+        log(`Chuyển sang tin tiếp theo: ${currentIndex + 1}/${currentClusters.length}`);
         playCurrentCluster();
     } else {
         karaokeText.innerText = "Chúc ông bà một ngày tốt lành!";
@@ -406,6 +417,7 @@ function nextNews() {
 function prevNews() {
     if (currentIndex > 0) {
         currentIndex--;
+        log(`Quay lại tin trước: ${currentIndex + 1}/${currentClusters.length}`);
         playCurrentCluster();
     }
 }
