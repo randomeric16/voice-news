@@ -24,7 +24,7 @@ async function checkDatabase() {
             .from('news_clusters')
             .select('*')
             .order('created_at', { ascending: false })
-            .limit(10);
+            .limit(30);
 
         if (error) throw error;
 

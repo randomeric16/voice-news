@@ -25,8 +25,8 @@ async function runPipeline() {
         clusters.sort((a, b) => b.items.length - a.items.length);
 
         // 4. Summarize each cluster
-        // Top 10 clusters — safe since pipeline runs every 2-12h, quota resets between runs
-        const topClusters = clusters.slice(0, 10);
+        // Increased to top 30 clusters for more daily variety
+        const topClusters = clusters.slice(0, 30);
         const processedClusters = [];
 
         for (const cluster of topClusters) {

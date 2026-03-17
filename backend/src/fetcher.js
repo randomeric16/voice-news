@@ -1,22 +1,33 @@
 const Parser = require('rss-parser');
+const fetch = require('node-fetch');
 const parser = new Parser();
 
 const FEEDS = [
     { name: 'VnExpress', url: 'https://vnexpress.net/rss/tin-moi-nhat.rss' },
     { name: 'Tuổi Trẻ', url: 'https://tuoitre.vn/rss/tin-moi-nhat.rss' },
     { name: 'Thanh Niên', url: 'https://thanhnien.vn/rss/home.rss' },
-    { name: 'VietnamNet', url: 'https://vietnamnet.vn/rss/tin-moi-nhat.rss' },
-    { name: 'Nhân Dân', url: 'https://nhandan.vn/rss/tin-moi-nhat.rss' }
+    { name: 'VietnamNet', url: 'https://vietnamnet.vn/home.rss' },
+    { name: 'Nhân Dân', url: 'https://nhandan.vn/rss/home.rss' }
 ];
 
 async function fetchAll() {
     console.log('Starting to fetch RSS feeds...');
     const allItems = [];
 
+    const headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'application/xml, text/xml, */*'
+    };
+
     for (const feed of FEEDS) {
         try {
             console.log(`Fetching ${feed.name}...`);
-            const response = await parser.parseURL(feed.url);
+            const res = await fetch(feed.url, { headers });
+            if (!res.ok) throw new Error(`Status code ${res.status}`);
+            
+            const xml = await res.text();
+            // Trim to avoid "Non-whitespace before first tag" errors
+            const response = await parser.parseString(xml.trim());
             
             const items = response.items.map(item => {
                 // Improved image extraction
