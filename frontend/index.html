@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice News - Tin Tức Cho Ông Bà</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <!-- Debug Console (Hidden by default, press 'D' to show) -->
+    <div id="debug-console" class="hidden">
+        <h3>Nhật ký hệ thống:</h3>
+        <div id="debug-logs"></div>
+        <div class="debug-controls">
+            <select id="voice-select"></select>
+            <button id="clear-heard-btn" style="background: #ff4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-top: 10px;">Xóa lịch sử nghe (Reset)</button>
+        </div>
+    </div>
+
+    <div id="app">
+        <!-- Greeting Overlay -->
+        <div id="greeting-screen" class="screen">
+            <div class="greeting-content">
+                <h1 id="greeting-text">Chào ông bà...</h1>
+                <div class="voice-options" id="voice-options-container">
+                    <!-- Voice buttons will be injected here -->
+                </div>
+                <div class="btn-group">
+                    <button id="start-btn" class="big-btn">Nghe Tin Ngay</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main News Slide (The Karaoke Slide) -->
+        <div id="main-screen" class="screen hidden">
+            <div class="news-slide">
+                <div class="news-image-container">
+                    <img id="news-image" src="" alt="Tin tức">
+                </div>
+                <div class="karaoke-container">
+                    <p id="karaoke-text">Tin tức đang tải...</p>
+                </div>
+            </div>
+
+            <div class="controls-container">
+                <button id="prev-btn" class="ctrl-btn" aria-label="Tin trước">⏮</button>
+                <button id="play-pause-btn" class="ctrl-btn" aria-label="Phát hoặc Tạm dừng">⏯</button>
+                <button id="next-btn" class="ctrl-btn" aria-label="Tin tiếp">⏭</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
