@@ -8,12 +8,13 @@ module.exports = async (req, res) => {
   }
 
   const lang = tl || 'vi';
+  // Use client=tw-ob for better compatibility
   const googleTtsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${lang}&client=tw-ob&q=${encodeURIComponent(q)}`;
 
   try {
     const response = await fetch(googleTtsUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
@@ -21,13 +22,14 @@ module.exports = async (req, res) => {
       throw new Error(`Google TTS responded with ${response.status}`);
     }
 
-    // Set headers to allow browser to play the audio
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.status(200).send(buffer);
 
-    // Stream the audio back to the client
-    response.body.pipe(res);
   } catch (error) {
     console.error('TTS Proxy Error:', error.message);
     res.status(500).json({ error: 'Failed to fetch TTS from Google' });

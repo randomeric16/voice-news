@@ -99,39 +99,19 @@ function renderVoiceButtons() {
     if (!voiceContainer) return;
     voiceContainer.innerHTML = '';
 
-    // A. Native Vietnamese Voices
-    const viVoices = voices.filter(v => v.lang.includes('vi-VN'));
-    viVoices.forEach((v, i) => {
-        const name = v.name.toLowerCase();
-        
-        // Strict Alternating Rule for Variety:
-        // Index 0, 2, 4... -> Nam
-        // Index 1, 3, 5... -> Bắc
-        let region = (i % 2 === 0) ? "giọng Việt Nam (Nam)" : "giọng Việt Nam (Bắc)";
-        
-        // Manual Keyword Override (Only if very clear)
-        if (name.includes('miền bắc') || name.includes('an') || name.includes('lan')) {
-            region = "giọng Việt Nam (Bắc)";
-        } else if (name.includes('miền nam') || name.includes('huyen')) {
-            region = "giọng Việt Nam (Nam)";
-        }
+    // A. Native Vietnamese Voices - Filter to only keep "Linh"
+    const viVoices = voices.filter(v => v.lang.includes('vi-VN') && v.name.includes('Linh'));
+    
+    // If no Linh found, just take the first Vietnamese voice
+    const displayVoices = viVoices.length > 0 ? [viVoices[0]] : [voices.find(v => v.lang.includes('vi-VN'))];
 
-        // Labeling
-        let label = v.name;
-        if (viVoices.filter(v2 => v2.name === v.name).length > 1) {
-            label += ` (${i + 1})`;
-        }
-
-        if (name.includes('premium') || name.includes('enhanced') || name.includes('siri')) {
-            label += " ✨";
-            region = "Chất lượng Cao";
-        }
-
-        addVoiceButton(label, region, v);
+    displayVoices.forEach((v, i) => {
+        if (!v) return;
+        addVoiceButton("Linh - Vietnamese", "Giọng chuẩn hệ thống", v);
     });
 
     // B. Premium/Bilingual Voices (Google Fallback)
-    addVoiceButton("Google Cao cấp ⭐", "Bilingual (Phát âm Anh mượt)", "google:vi");
+    addVoiceButton("Google Cao cấp ⭐", "Giọng đọc chuyên nghiệp", "google:vi");
 
     // Default Selection
     if (!selectedVoice && voiceContainer.firstChild) {
