@@ -32,13 +32,19 @@ async function runPipeline() {
         for (const cluster of topClusters) {
             try {
                 const summary = await summarizeCluster(cluster);
+                const llmService = require("./llm_service");
                 processedClusters.push({
                     ...cluster,
                     summary: summary
                 });
-                // Wait 30s between calls — Gemini free-tier retryDelay is 30s
-                console.log('Waiting 30s to respect Gemini free-tier rate limit...');
-                await sleep(30000);
+                // Conditional wait: Skip 30s wait if using a high-rate model like GLM
+                if (llmService.usingLowRateModel()) {
+                    console.log('Waiting 30s to respect Gemini free-tier rate limit...');
+                    await sleep(30000);
+                } else {
+                    console.log('Using high-rate GLM, moving to next cluster immediately.');
+                    await sleep(1000); // 1s buffer for courtesy
+                }
             } catch (err) {
                 console.error(`Failed to summarize cluster ${cluster.clusterTitle}:`, err.message);
             }
